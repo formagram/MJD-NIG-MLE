@@ -8,4 +8,6 @@ NIG = Normal Inverse Gaussian
 
 "MLE Sim Study" scripts simulate n paths using true and known parameters set by the user and estimate parameters for each path using MLE. Plots and prints of mean and standard deviation show the accuracy of our method.
 
-"MLE Estimation P Bootstrap" scripts estimate the parameters from the data.csv file in the Physical measure and reiterate n times using a bootstrap method.
+"MLE Estimation P Bootstrap" scripts estimate the parameters from the "/data/data.csv" file in the Physical measure and reiterate n times using a bootstrap method.
+
+"result summaries/Model Estimation results.xlsx" contains all intermediate results summarized.
