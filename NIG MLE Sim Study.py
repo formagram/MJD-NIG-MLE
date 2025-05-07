@@ -5,41 +5,53 @@ from scipy.optimize import minimize
 
 def NIG_sim(params: tuple, T: int, dt: float) -> np.ndarray:
    
-   mu, alpha, beta, delta = params
-   steps = int(T * (1/dt))
+    # Unpack parameters
+    mu, alpha, beta, delta = params
 
-   gamma = np.sqrt(alpha**2 - beta**2)
+    #number of steps
+    steps = int(T * (1/dt))
+    
+    # Sub arg gamma
+    gamma = np.sqrt(alpha**2 - beta**2)
 
-   IG = np.random.wald(delta * dt / gamma, (delta * dt) ** 2, steps)
-   dW = np.random.normal(0, 1, steps)
+    # IG process and i.i.d BM
+    IG = np.random.wald(delta * dt / gamma, (delta * dt) ** 2, steps)
+    dW = np.random.normal(0, 1, steps)
 
-   log_returns = mu * dt + beta * IG + dW * np.sqrt(IG)
+    # Mixture model sampler
+    log_returns = mu * dt + beta * IG + dW * np.sqrt(IG)
 
-   return log_returns
+    return log_returns
 
 def NIG_init_params(data: np.ndarray, dt: float) -> tuple:
 
+    # Compute sample moments
     mu_bar   = np.mean(data)
     s_bar    = np.std(data)
     var_bar  = np.mean(np.power(data - mu_bar, 2))
     skew_bar = np.mean(np.power(data - mu_bar, 3))
     kurt_bar = np.mean(np.power(data - mu_bar, 4))
 
+    # sample skewness and kurtosis
     gamma_1 = skew_bar / var_bar**(3 / 2)
     gamma_2 = kurt_bar / var_bar**2 - 3
 
+    # Condition check
     moment_check = 3 * gamma_2 - 5 * gamma_1**2
+
     if moment_check <= 0:
         # Moment condition fails → return NaNs or fallback
         print("Moment condition invalid: skipping this sample.")
         return (np.nan, np.nan, np.nan, np.nan)
 
+    # Compute as shown from papers
     gamma_hat = 3 / (s_bar * np.sqrt(3 * gamma_2 - 5 * gamma_1**2))
     beta_hat  = (gamma_1 * s_bar * gamma_hat**2) / 3
     delta_hat = (s_bar**2 * gamma_hat**3) / (beta_hat**2 + gamma_hat**2)
     mu_hat    = mu_bar - beta_hat * delta_hat / gamma_hat
     alpha_hat = np.sqrt(gamma_hat**2 + beta_hat**2)
 
+    # Scale with dt
     init_params = (mu_hat * dt**-1, alpha_hat, beta_hat, delta_hat * dt**-1)
 
     return init_params
@@ -87,12 +99,13 @@ def Loglikelihood(params: np.ndarray, data: np.ndarray, dt: float) -> float:
 
 def plot_parameter_distributions(estimated_params: np.ndarray, true_params: tuple, save_path="nig_param_distributions.pdf"): 
 
-    param_names = ['μ', 'α', 'β', 'δ']  # Greek symbols for elegance
+    param_names = ['μ', 'α', 'β', 'δ'] 
     true_values = list(true_params)
 
     fig, axes = plt.subplots(2, 2, figsize=(12, 9))
     axes = axes.flatten()
 
+    # subplot histogramms for distribution
     for i in range(4):
         axes[i].hist(estimated_params[:, i], bins=20, alpha=0.7, color='grey', edgecolor='black')
         axes[i].axvline(true_values[i], color='black', linestyle='--', linewidth=1.5, label=f'True {param_names[i]} = {true_values[i]:.4f}')
@@ -123,8 +136,7 @@ def plot_parameter_distributions(estimated_params: np.ndarray, true_params: tupl
     plt.grid(True, linestyle=':', linewidth=0.5)
     plt.show()
 
-
-
+# Additional Information
 def NIG_implied_moments(params: tuple, dt: float) -> tuple:
     mu, alpha, beta, delta = params
 
@@ -164,8 +176,11 @@ estimated_params = np.zeros((n_paths, len(true_params)))
 
 #
 for i in range(n_paths):
+
+    # Simulate path
     log_returns = NIG_sim(true_params, T, dt)
 
+    # estimate init parameterd
     init_params = NIG_init_params(log_returns, dt)
 
     # Estimate parameters via MLE using an initial guess

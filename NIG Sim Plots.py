@@ -4,25 +4,47 @@ import matplotlib.pyplot as plt
 from matplotlib import cm
 from scipy.special import k1
 
-def NIG_sim(params: tuple, steps: int, dt: float) -> np.ndarray:
-   mu, alpha, beta, delta = params
-   gamma = np.sqrt(alpha**2 - beta**2)
-   IG = np.random.wald(delta * dt / gamma, (delta * dt) ** 2, steps)
-   dW = np.random.normal(0, 1, steps)
-   X_t = mu * dt + beta * IG + dW * np.sqrt(IG)
-   return X_t
+def NIG_sim(params: tuple, T: int, dt: float) -> np.ndarray:
+   
+    # Unpack parameters
+    mu, alpha, beta, delta = params
+
+    #number of steps
+    steps = int(T * (1/dt))
+    
+    # Sub arg gamma
+    gamma = np.sqrt(alpha**2 - beta**2)
+
+    # IG process and i.i.d BM
+    IG = np.random.wald(delta * dt / gamma, (delta * dt) ** 2, steps)
+    dW = np.random.normal(0, 1, steps)
+
+    # Mixture model sampler
+    log_returns = mu * dt + beta * IG + dW * np.sqrt(IG)
+
+    return log_returns
 
 def NIG_density(x: np.ndarray, params: tuple, dt: float) -> np.ndarray:
-   mu, alpha, beta, delta = params
-   mu = dt * mu
-   delta = dt * delta
-   gamma = np.sqrt(alpha**2 - beta**2)
-   arg = np.sqrt(delta**2 + np.power(x - mu, 2))
-   numerator = alpha * delta * k1(alpha * arg)
-   denominator = np.pi * arg
-   exponent = np.exp(delta * gamma + beta * (x - mu))
-   density = (numerator / denominator) * exponent
-   return np.maximum(density, 1e-30)
+
+    # Unpack parameters
+    mu, alpha, beta, delta = params
+
+    # Adjust for time step
+    mu = mu * dt
+    delta = delta * dt
+
+    # Compute args
+    gamma = np.sqrt(alpha**2 - beta**2)
+    arg = np.sqrt(delta**2 + np.power(x - mu, 2))
+
+    # Compute density components
+    numerator = alpha * delta * k1(alpha * arg)
+    denominator = np.pi * arg
+    exponent = np.exp(delta * gamma + beta * (x - mu))
+
+    # Assemble to density
+    density = (numerator / denominator) * exponent
+    return np.maximum(density, 1e-30)
 
 # Set a random seed for reproducibility
 np.random.seed(1)
@@ -47,7 +69,7 @@ linestyles = [ ":", "-", "--"]
 
 plt.figure(figsize=(9, 6))
 for i in range(len(colors)):
-    log_returns = NIG_sim(true_params, N_steps, dt)
+    log_returns = NIG_sim(true_params, T, dt)
     S_t = 100 * np.exp(np.cumsum(log_returns))
     plt.plot(time, S_t, lw=1, color=colors[i])
 

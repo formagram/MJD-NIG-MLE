@@ -6,27 +6,33 @@ from scipy.optimize import minimize
 
 def NIG_init_params(data: np.ndarray, dt: float) -> tuple:
 
+    # Compute sample moments
     mu_bar   = np.mean(data)
     s_bar    = np.std(data)
     var_bar  = np.mean(np.power(data - mu_bar, 2))
     skew_bar = np.mean(np.power(data - mu_bar, 3))
     kurt_bar = np.mean(np.power(data - mu_bar, 4))
 
+    # sample skewness and kurtosis
     gamma_1 = skew_bar / var_bar**(3 / 2)
     gamma_2 = kurt_bar / var_bar**2 - 3
 
+    # Condition check
     moment_check = 3 * gamma_2 - 5 * gamma_1**2
+
     if moment_check <= 0:
         # Moment condition fails → return NaNs or fallback
         print("Moment condition invalid: skipping this sample.")
         return (np.nan, np.nan, np.nan, np.nan)
 
+    # Compute as shown from papers
     gamma_hat = 3 / (s_bar * np.sqrt(3 * gamma_2 - 5 * gamma_1**2))
     beta_hat  = (gamma_1 * s_bar * gamma_hat**2) / 3
     delta_hat = (s_bar**2 * gamma_hat**3) / (beta_hat**2 + gamma_hat**2)
     mu_hat    = mu_bar - beta_hat * delta_hat / gamma_hat
     alpha_hat = np.sqrt(gamma_hat**2 + beta_hat**2)
 
+    # Scale with dt
     init_params = (mu_hat * dt**-1, alpha_hat, beta_hat, delta_hat * dt**-1)
 
     return init_params
@@ -80,27 +86,26 @@ end_date = '2025-01-03'
 data = data.loc[start_date:end_date]
 
 # Args
-dt = 1/252 
+dt = 1/252 # time increment
 bounds = [(-np.inf, np.inf), (1e-6, None), (-300, 300), (1e-6, None)]
-n_resamples = 1000
+n_resamples = 1000 # n bootstrapp samples
 k = 4 # number of parameters
 
 # Iterate for each symbol
 for i in range(0,len(data.columns)):
 
+    # Result matrices
     bootstrapped_res = np.zeros((n_resamples, k))
-
     bootstrapped_init_res = np.zeros((n_resamples, k))
 
+    # Extract stock returns and name
     log_returns = data.iloc[:,i].values
-
     symbol = data.iloc[:,i].name
 
     print("")
     print(f"Symbol estimated: {symbol}")
 
-    bootstrapped_res = np.zeros((n_resamples, k))
-
+    # Iterate through bootstrap samples
     for j in range(n_resamples):
 
         print(j)
@@ -110,8 +115,10 @@ for i in range(0,len(data.columns)):
         else:
             resampled_returns = np.random.choice(log_returns, size=len(log_returns), replace=True) # Uniform resampling
 
+        # Compute init params for each resample
         init_params= NIG_init_params(resampled_returns, dt)
 
+        # Minimize
         result = minimize(
             Loglikelihood,
             x0=init_params, 
@@ -126,7 +133,7 @@ for i in range(0,len(data.columns)):
         }
         )
 
-        # Uncomment for results
+        # Uncomment for results of AIC BIC
         # n = len(log_returns)
         # neg_log_likelihood = result.fun
 
@@ -142,20 +149,23 @@ for i in range(0,len(data.columns)):
         bootstrapped_res[j, :] = result.x
         bootstrapped_init_res[j, :] = init_params
 
-
+    # Clean from nan's to prevent errors (Should not be the case though)
     bootstrapped_res = bootstrapped_res[~np.isnan(bootstrapped_res).any(axis=1)]
     bootstrapped_init_res = bootstrapped_init_res[~np.isnan(bootstrapped_init_res).any(axis=1)]
 
+    # Compute stats from bootstrapped results
     estimation_mean = np.mean(bootstrapped_res, axis=0)
     estimation_deviation = np.std(bootstrapped_res, axis=0)
     bootstrap_deviation = np.sqrt(np.mean((bootstrapped_res - bootstrapped_res[0, :]) ** 2, axis=0))
     t_stat = np.abs(estimation_mean) / bootstrap_deviation
 
+    # Compute stats from bootstrapped init results
     estimation_init_mean = np.mean(bootstrapped_init_res, axis=0)
     estimation_init_deviation = np.std(bootstrapped_init_res, axis=0)
     bootstrap_init_deviation = np.sqrt(np.mean((bootstrapped_init_res - bootstrapped_init_res[0, :]) ** 2, axis=0))
     t_stat_init = np.abs(estimation_init_mean) / bootstrap_init_deviation
 
+    # Print results
     print("Estimated Parameters:")
     print(estimation_mean)
     print(estimation_deviation)

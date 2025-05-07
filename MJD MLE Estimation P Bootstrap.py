@@ -8,16 +8,18 @@ from math import factorial
 
 def MJD_init_params(data: np.ndarray, dt: float, epsilon: float) -> tuple:
 
+    # Separate data accoridng to threshold
     returns_no_jump = data[np.abs(data) < epsilon]
     returns_jump    = data[np.abs(data) >= epsilon]
 
+    # Estimate jump intensity
     lambda_hat = len(returns_jump)/(len(data) * dt)
 
+    # Estimate parameters when no jump
     mu_hat  = (2*np.mean(returns_no_jump) + np.var(returns_no_jump)*dt)/(2*dt)
     sig_hat = np.sqrt(np.var(returns_no_jump)/dt)
     
-
-
+    # Estimate jump parameters
     muJ_hat = np.mean(returns_jump) - (mu_hat - (sig_hat**2)/2)*dt
     sigJ_hat = np.sqrt(max(0, np.var(returns_jump) - (sig_hat**2)*dt))
 
@@ -34,14 +36,14 @@ def MJD_density(x: np.ndarray, params: tuple, dt: float) -> np.ndarray:
     # Jump compensation term
     k = np.exp(muJ + (sigJ**2) / 2) - 1 
 
-    # Sum the contributions for 0 to 19 jumps
+    # Sum the contributions for 0 to 10 jumps for the density function below
     for n in range(10):
         mu_den = (mu - (sig**2) / 2 - lam * k) * dt + n * muJ
         var_den = (sig**2) * dt + (sigJ**2) * n
         var_den = np.maximum(var_den, 1e-30)  # avoid zero variance
         norm_den = (1 / np.sqrt(2 * np.pi * var_den)) * np.exp(-((x - mu_den)**2) / (2 * var_den))
-        poisson_den = np.exp(-lam * dt) * ((lam * dt)**n) / factorial(n)
-        density += poisson_den * norm_den
+        poisson_den = np.exp(-lam * dt) * ((lam * dt)**n) / factorial(n) # Poisson
+        density += poisson_den * norm_den 
     return np.maximum(density, 1e-30)
 
 def Loglikelihood(params: np.ndarray, data: np.ndarray, dt: float) -> float:
@@ -67,26 +69,27 @@ end_date = '2025-01-03'
 data = data.loc[start_date:end_date]
 
 # Args
-dt = 1/252
-epsilon = 0.03
+dt = 1/252         # time increment
+epsilon = 0.03     # Jump threshold
 bounds = [(-1, 1), (1e-6, 1), (1e-6, 100), (-1, 1), (1e-6, 1)]
-n_resamples = 1000
-k = 5
+n_resamples = 1000 # number of bootstrap smaples
+k = 5              # k parameters estimater
 
 # Iterate for each symbol
 for i in range(0,len(data.columns)):
 
+    # Result matrices
     bootstrapped_res = np.zeros((n_resamples, k))
     bootstrapped_init_res = np.zeros((n_resamples, k))
 
+    # Extract return values and name
     log_returns = data.iloc[:,i].values
-
     symbol = data.iloc[:,i].name
 
     print("")
     print(f"Symbol estimated: {symbol}")
     
-
+    # Iterate through bootstrap samples
     for j in range(n_resamples):
         
         if j == 0:
@@ -94,8 +97,10 @@ for i in range(0,len(data.columns)):
         else:
             resampled_returns = np.random.choice(log_returns, size=len(log_returns), replace=True) # Uniform resampling
 
+        # Compute init params for each resample
         init_params= MJD_init_params(resampled_returns, dt, epsilon)
 
+        # Minimize
         result = minimize(
             Loglikelihood,
             x0=init_params,
@@ -110,7 +115,7 @@ for i in range(0,len(data.columns)):
         }
         )
 
-        # Uncomment for results
+        # Uncomment for results of AIC BIC
         # n = len(log_returns)
         # neg_log_likelihood = result.fun
 
