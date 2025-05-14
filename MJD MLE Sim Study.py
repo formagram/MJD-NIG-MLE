@@ -110,7 +110,6 @@ def plot_parameter_distributions(estimated_params: np.ndarray, true_params: tupl
     axes[5].axis('off')
 
     plt.tight_layout()
-    plt.savefig(save_path, format='pdf')
     plt.show()
 
     lin_space = np.linspace(-0.05, 0.05, num=1000)

@@ -115,7 +115,7 @@ for i in range(0,len(data.columns)):
         }
         )
 
-        # Uncomment for results of AIC BIC
+        # # Uncomment below for results of AIC BIC, I ran it with n_resamples = 1 to have only the values for original estimate
         # n = len(log_returns)
         # neg_log_likelihood = result.fun
 

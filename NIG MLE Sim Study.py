@@ -118,8 +118,7 @@ def plot_parameter_distributions(estimated_params: np.ndarray, true_params: tupl
         axes[i].legend(fontsize=9)
 
     plt.tight_layout()
-    plt.savefig(save_path, format='pdf')
-    plt.close()
+    plt.show()
 
     # Plot comparison between true PDF and mean estimated PDF
     lin_space = np.linspace(-0.05, 0.05, num=1000)
