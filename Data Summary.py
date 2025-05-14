@@ -22,18 +22,18 @@ for i in range(0,len(data.columns)):
     skew = ss.skew(log_returns, bias=False)
     kurt = ss.kurtosis(log_returns, bias=False)
 
-    # Print resluts
+    # Perform Normality test
+    ks_statistic, p_value = ss.kstest(log_returns, 'norm', args=(mean, std))
+
+    # Print results
     print("")
     print(f"Symbol estimated: {symbol}")
     print(f"Mean: {mean*252}") # Annualize
     print(f"Standard Deviation: {std*np.sqrt(252)}") # Annualize
     print(f"Skewness: {skew}")
     print(f"Fisher Kurtosis: {kurt}")
+    
     print("")
-
-    # Perform Normality test
-    ks_statistic, p_value = ss.kstest(log_returns, 'norm', args=(mean, std))
-
     print(f"KS Statistic: {ks_statistic}")
     print(f"P-Value: {p_value}")
 
